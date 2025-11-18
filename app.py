@@ -1,13 +1,25 @@
 from datetime import datetime, timezone
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from pydantic import ValidationError
 from models import SurveySubmission, StoredSurveyRecord
 from storage import append_json_line
+import hashlib
+
+def sha256_hash(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 app = Flask(__name__)
 # Allow cross-origin requests so the static HTML can POST from localhost or file://
 CORS(app, resources={r"/v1/*": {"origins": "*"}})
+
+@app.route("/")
+def root():
+    return send_from_directory("frontend", "index.html")
+
+@app.route("/<path:path>")
+def static_proxy(path):
+    return send_from_directory("frontend", path)
 
 @app.route("/ping", methods=["GET"])
 def ping():
@@ -29,13 +41,27 @@ def submit_survey():
     except ValidationError as ve:
         return jsonify({"error": "validation_error", "detail": ve.errors()}), 422
 
+    email_normalized = submission.email.strip().lower()
+    email_hash= sha256_hash(email_normalized)
+    age_hash = sha256_hash(str(submission.age))
+    hour_stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+    submission_id = submission.submission_id or sha256_hash(email_normalized + hour_stamp)
+    
     record = StoredSurveyRecord(
-        **submission.dict(),
+        name=submission.name,
+        email=email_hash,
+        age=age_hash,
+        consent=submission.consent,
+        rating=submission.rating,
+        comments=submission.comments,
+        user_agent=submission.user_agent,
+        submission_id=submission_id,
         received_at=datetime.now(timezone.utc),
         ip=request.headers.get("X-Forwarded-For", request.remote_addr or "")
     )
     append_json_line(record.dict())
     return jsonify({"status": "ok"}), 201
 
+
 if __name__ == "__main__":
-    app.run(port=0, debug=True)
+    app.run(port=5000, debug=True, host="0.0.0.0")
