@@ -1,67 +1,53 @@
-from datetime import datetime, timezone
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from pydantic import ValidationError
-from models import SurveySubmission, StoredSurveyRecord
-from storage import append_json_line
-import hashlib
-
-def sha256_hash(s: str) -> str:
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+# app.py
+from flask import Flask, request, jsonify
+import os
+from blackjack import basic_strategy, hand_value, normalize_card
+from llm_provider import explain_decision
 
 app = Flask(__name__)
-# Allow cross-origin requests so the static HTML can POST from localhost or file://
-CORS(app, resources={r"/v1/*": {"origins": "*"}})
 
-@app.route("/")
-def root():
-    return send_from_directory("frontend", "index.html")
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
 
-@app.route("/<path:path>")
-def static_proxy(path):
-    return send_from_directory("frontend", path)
+@app.route("/advise", methods=["POST"])
+def advise():
+    """
+    POST JSON:
+    {
+      "player": ["A♠", "7♦"],
+      "dealer": "6♣",
+      "can_double": true,
+      "can_split": true
+    }
+    """
+    data = request.get_json() or {}
+    player = data.get("player", [])
+    dealer = data.get("dealer")
+    can_double = data.get("can_double", True)
+    can_split = data.get("can_split", True)
 
-@app.route("/ping", methods=["GET"])
-def ping():
-    """Simple health check endpoint."""
+    if not player or not dealer:
+        return jsonify({"error": "player and dealer required"}), 400
+
+    # normalize cards (strip suits, accept 'A','K','Q','J' or numeric strings)
+    player_norm = [normalize_card(c) for c in player]
+    dealer_norm = normalize_card(dealer)
+
+    decision = basic_strategy(player_norm, dealer_norm, can_double=can_double, can_split=can_split)
+    # deterministic reasoning we can unit test
+    explanation = explain_decision(
+        provider=os.getenv("LLM_PROVIDER", "mock"),
+        prompt={"player": player_norm, "dealer": dealer_norm, "decision": decision}
+    )
+
     return jsonify({
-        "status": "ok",
-        "message": "API is alive",
-        "utc_time": datetime.now(timezone.utc).isoformat()
+        "player": player,
+        "dealer": dealer,
+        "decision": decision,
+        "explanation": explanation
     })
 
-@app.post("/v1/survey")
-def submit_survey():
-    payload = request.get_json(silent=True)
-    if payload is None:
-        return jsonify({"error": "invalid_json", "detail": "Body must be application/json"}), 400
-
-    try:
-        submission = SurveySubmission(**payload)
-    except ValidationError as ve:
-        return jsonify({"error": "validation_error", "detail": ve.errors()}), 422
-
-    email_normalized = submission.email.strip().lower()
-    email_hash= sha256_hash(email_normalized)
-    age_hash = sha256_hash(str(submission.age))
-    hour_stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H")
-    submission_id = submission.submission_id or sha256_hash(email_normalized + hour_stamp)
-    
-    record = StoredSurveyRecord(
-        name=submission.name,
-        email=email_hash,
-        age=age_hash,
-        consent=submission.consent,
-        rating=submission.rating,
-        comments=submission.comments,
-        user_agent=submission.user_agent,
-        submission_id=submission_id,
-        received_at=datetime.now(timezone.utc),
-        ip=request.headers.get("X-Forwarded-For", request.remote_addr or "")
-    )
-    append_json_line(record.dict())
-    return jsonify({"status": "ok"}), 201
-
-
 if __name__ == "__main__":
-    app.run(port=5000, debug=True, host="0.0.0.0")
+    port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
