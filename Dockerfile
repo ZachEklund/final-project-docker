@@ -1,32 +1,16 @@
-# Use official lightweight Python image
-FROM python:3.11-slim
+FROM python:3.10
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# Set working directory
 WORKDIR /app
 
-# Copy requirements first for caching
-COPY requirements.txt .
+# Copy requirements FIRST
+COPY requirements.txt /app/requirements.txt
+RUN pip install -r requirements.txt
 
-# Install system dependencies (if needed) and Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy backend
+COPY src/ /app/
 
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy frontend
+COPY frontend/ /app/frontend/
 
-# Copy all project files
-COPY . .
-
-# Expose port for Flask
-EXPOSE 5000
-
-# Optional: set environment variables for LLM (replace with .env in production)
-# ENV LLM_PROVIDER=ollama
-# ENV AZURE_API_KEY=your_api_key_here
-
-# Run the Flask app
-CMD ["python", "app.py"]
+# Run FastAPI
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

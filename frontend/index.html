@@ -1,80 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Blackjack GPT Advisor</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="./styles.css" />
+    <title>Blackjack Advisor</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .card-select { margin: 10px 0; }
+        button { margin-top: 20px; padding: 10px; font-size: 16px; }
+        #result { margin-top: 20px; font-size: 20px; font-weight: bold; }
+    </style>
 </head>
 <body>
-  <main class="container">
-    <h1>Blackjack GPT Advisor</h1>
-    <p class="lead">
-      Enter your hand and the dealer's upcard to get strategy advice.
-    </p>
 
-    <form id="blackjack-form" novalidate>
-      <div class="field">
-        <label for="player1">Player Card 1:</label>
-        <input id="player1" name="player1" type="text" maxlength="2" required placeholder="e.g., 10, A, 5" />
-      </div>
+<h1>Blackjack Advisor</h1>
 
-      <div class="field">
-        <label for="player2">Player Card 2:</label>
-        <input id="player2" name="player2" type="text" maxlength="2" required placeholder="e.g., 10, A, 5" />
-      </div>
+<div class="card-select">
+    <label>Your Cards:</label><br>
+    <select id="player1">
+        <option></option>
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
 
-      <div class="field">
-        <label for="dealer">Dealer Upcard:</label>
-        <input id="dealer" name="dealer" type="text" maxlength="2" required placeholder="e.g., K, 6" />
-      </div>
+    <select id="player2">
+        <option></option>
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
 
-      <button id="submitBtn" type="submit">Get Advice</button>
-    </form>
+    <select id="player3">
+        <option></option>
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
 
-    <section id="result" class="result" aria-live="polite"></section>
-  </main>
+    <select id="player4">
+        <option></option>
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
 
-  <script>
-    const form = document.getElementById("blackjack-form");
-    const result = document.getElementById("result");
-    const submitBtn = document.getElementById("submitBtn");
+    <select id="player5">
+        <option></option>
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      result.textContent = "";
-      submitBtn.disabled = true;
+    <select id="player6">
+        <option></option>
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
+</div>
 
-      const fd = new FormData(form);
-      const payload = {
-        player: [fd.get("player1"), fd.get("player2")],
-        dealer: fd.get("dealer")
-      };
+<div class="card-select">
+    <label>Dealer Card:</label><br>
+    <select id="dealer">
+        <option>A</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option>
+        <option>9</option><option>10</option><option>J</option><option>Q</option><option>K</option>
+    </select>
+</div>
 
-      try {
-        const res = await fetch("/advise", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+<button onclick="getAdvice()">Get Advice</button>
+
+<div id="result"></div>
+
+<script>
+async function getAdvice() {
+    const playerCards = [];
+    for (let i = 1; i <= 6; i++) {
+        const card = document.getElementById("player" + i).value;
+        if (card) playerCards.push(card);
+    }
+
+    const dealer = document.getElementById("dealer").value;
+
+    try {
+        const response = await fetch("http://localhost:8000/advise", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ player: playerCards, dealer: dealer })
         });
 
-        const data = await res.json();
+        const data = await response.json();
+        document.getElementById("result").innerText = "Advice: " + data.action;
+    } catch (err) {
+        document.getElementById("result").innerText = "Error: " + err;
+    }
+}
+</script>
 
-        if (res.ok) {
-          result.className = "result ok";
-          result.textContent = `Advice: ${data.advice}`;
-        } else {
-          result.className = "result error";
-          result.textContent = `Error ${res.status}: ${data.error || res.statusText}`;
-        }
-      } catch (err) {
-        result.className = "result error";
-        result.textContent = "Network error. Is the API running?";
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
-  </script>
 </body>
 </html>
-
