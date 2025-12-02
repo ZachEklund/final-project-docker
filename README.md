@@ -69,6 +69,11 @@ Unit tests in `tests/` verify the strategy against known correct moves.
 *   Add support for specific table rules (e.g., "Dealer hits soft 17").
 *   Implement a "Card Counting" drill mode.
 *   Deploy to a cloud provider (e.g., AWS App Runner or Google Cloud Run).
+*   **Deploy to Render:**
+    1.  Fork/Push this repo to your GitHub.
+    2.  Sign up for [Render](https://render.com).
+    3.  Click "New +", select "Web Service", and connect your repo.
+    4.  Render will automatically detect `render.yaml` and deploy!
 
 **7) Links**
 *   **GitHub Repo:** [https://github.com/ZachEklund/final-project-docker](https://github.com/ZachEklund/final-project-docker)
