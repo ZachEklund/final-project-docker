@@ -124,17 +124,4 @@ def basic_strategy(player: List[str], dealer: str, can_double=True, can_split=Tr
             return 'double'
         return 'hit'
     return 'hit'
-def build_prompt(player_cards, dealer_card):
-    """
-    Build a prompt for the LLM to advise on blackjack move.
-    """
-    player_str = ", ".join(player_cards)
-    prompt = f"""
-You are a blackjack strategy expert.
-Player hand: {player_str}
-Dealer upcard: {dealer_card}
 
-Give the optimal move (Hit, Stand, Double, Split) and a short explanation.
-Respond in one sentence.
-"""
-    return prompt

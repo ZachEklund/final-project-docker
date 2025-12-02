@@ -1,10 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List
 import os
+import logging
+import time
+
+# ---- Observability Setup ----
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("blackjack_advisor")
 
 app = FastAPI()
 
@@ -17,6 +27,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middleware for request logging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.4f}s")
+    return response
+
 # Serve static files from the 'frontend' folder
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
@@ -25,60 +44,12 @@ app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 def read_index():
     return FileResponse(os.path.join("frontend", "index.html"))
 
-# ---- Blackjack Logic ----
-def hand_value(cards):
-    total = 0
-    aces = 0
-    for c in cards:
-        if c in ["J", "Q", "K"]:
-            total += 10
-        elif c == "A":
-            aces += 1
-            total += 11
-        else:
-            total += int(c)
-    while total > 21 and aces > 0:
-        total -= 10
-        aces -= 1
-    return total
+# Health Check Endpoint (Ops)
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "service": "blackjack-advisor"}
 
-def is_soft(cards):
-    total = 0
-    aces = 0
-    for c in cards:
-        if c in ["J", "Q", "K"]:
-            total += 10
-        elif c == "A":
-            total += 11
-            aces += 1
-        else:
-            total += int(c)
-    return aces > 0 and total <= 21
-
-def basic_strategy(player_cards, dealer_card):
-    player_total = hand_value(player_cards)
-    dealer_value = 10 if dealer_card in ["J", "Q", "K"] else (11 if dealer_card == "A" else int(dealer_card))
-
-    # Soft hands
-    if is_soft(player_cards):
-        if player_total <= 17:
-            return "Hit"
-        if player_total == 18:
-            return "Stand" if dealer_value in [2, 7, 8] else "Hit"
-        return "Stand"
-
-    # Hard hands
-    if player_total <= 8:
-        return "Hit"
-    if player_total == 9:
-        return "Hit" if dealer_value in [2, 7, 8, 9, 10, 11] else "Double or Hit"
-    if 10 <= player_total <= 11:
-        return "Double or Hit"
-    if player_total == 12:
-        return "Hit" if dealer_value in [2, 3, 7, 8, 9, 10, 11] else "Stand"
-    if 13 <= player_total <= 16:
-        return "Stand" if dealer_value in [2, 3, 4, 5, 6] else "Hit"
-    return "Stand"  # 17 or more
+from blackjack import basic_strategy
 
 # ---- API Model ----
 class AdviceRequest(BaseModel):
@@ -89,8 +60,11 @@ class AdviceRequest(BaseModel):
 @app.post("/advise")
 def advise(req: AdviceRequest):
     try:
-        recommendation = basic_strategy(req.player, req.dealer)
+        # basic_strategy returns lowercase, so we title() it for display
+        recommendation = basic_strategy(req.player, req.dealer).title()
+        logger.info(f"Advice requested: Player={req.player}, Dealer={req.dealer} -> {recommendation}")
         return {"action": recommendation}
     except Exception as e:
+        logger.error(f"Error processing request: {e}")
         return {"error": str(e)}
 

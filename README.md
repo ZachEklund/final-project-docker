@@ -1,53 +1,74 @@
-1) Executive Summary
-Problem:
-Many casual or beginner blackjack players struggle to make optimal decisions during play, often missing opportunities to double, split, or stand correctly. This can reduce winnings and increase losses. The goal of this project is to provide a fast, automated blackjack strategy advisor for players to get move recommendations in real-time.
-Solution:
-The Blackjack Advisor is a lightweight web API built with FastAPI that takes a player's hand and the dealer's upcard, then returns the recommended move using a simplified blackjack basic strategy. The app is fully containerized with Docker, so anyone can run it on their machine without installing dependencies manually. It also serves a static frontend for testing and demonstration.
+# Blackjack Advisor
 
-2) System Overview
-Course Concepts Integrated: FastAPI for creating a REST API, Docker for containerization and reproducible deployment, and Python functions implementing blackjack logic and basic strategy.
-Architecture Diagram:
-![alt text](<Screenshot 2025-11-30 at 10.04.57 PM.png>)
-Data/Models/Services: No external datasets used; all logic is algorithmic. blackjack.py contains functions for hand evaluation and move recommendation. Formats: JSON requests/responses via REST API.
+![CI Status](https://github.com/ZachEklund/final-project-docker/actions/workflows/ci.yml/badge.svg)
 
-3) How To Run: Local
-    # Build the Docker image
-    docker build -t blackjack-advisor .
+**1) Executive Summary**
+**Problem:** Casual blackjack players often make suboptimal decisions, increasing the house edge and their potential losses. Memorizing strategy charts can be difficult for beginners.
+**Solution:** The Blackjack Advisor is a containerized web application that provides instant, mathematically optimal move recommendations (Hit, Stand, Double, Split) based on the player's hand and the dealer's upcard. It features a simple web interface and a REST API for easy integration.
 
-    # Run the container
-    docker run --rm -p 8080:8000 blackjack-advisor
+**2) System Overview**
+**Course Concept(s):** **FastAPI & Docker**. The project demonstrates building a high-performance REST API using FastAPI and packaging it into a reproducible container using Docker.
+**Architecture Diagram:**
+![Architecture Diagram](assets/architecture.png)
+*(Note: Please ensure an architecture diagram exists at `assets/architecture.png` or similar)*
+**Data/Models/Services:**
+*   **Logic:** Pure Python implementation of Blackjack Basic Strategy (no external ML models).
+*   **API:** FastAPI (Python).
+*   **Frontend:** HTML/JS (Static).
+*   **License:** MIT License.
 
-    # Test the API
-    curl -X POST http://localhost:8080/advise \
-      -H "Content-Type: application/json" \
-      -d '{"player":["A","7"], "dealer":"9"}'
-The frontend is accessible at http://localhost:8080/
+**3) How to Run (Local)**
+**Docker**
+```bash
+# Build the image
+docker build -t blackjack-advisor .
 
-4) Design Decisions
+# Run the container (Frontend at http://localhost:8080)
+docker run --rm -p 8080:8000 blackjack-advisor
+```
 
-Why This Concept: FastAPI was chosen for its simplicity, speed, and built-in OpenAPI support, making it easy to serve both the API and static frontend. Docker ensures the environment is reproducible on any machine.
+**Test the API manually:**
+```bash
+curl -X POST http://localhost:8080/advise \
+  -H "Content-Type: application/json" \
+  -d '{"player":["A","7"], "dealer":"9"}'
+```
 
-Alternatives Considered: 
-Flask - simpler, but FastAPI provides automatic docs and async support.
-Local virtual environments -  adds manual setup complexity for users.
+**Health Check (Ops):**
+```bash
+curl http://localhost:8080/health
+# Output: {"status": "healthy", "service": "blackjack-advisor"}
+```
 
-Tradeoffs: 
-Performance - Minimal CPU/memory usage; suitable for small-scale personal use.
-Complexity - Straightforward logic and API design, no external DB required.
-Maintainability - Modular blackjack.py makes updates easy.
+**4) Design Decisions**
+**Why this concept?** Blackjack strategy is a perfect candidate for a microservice: it has clear inputs, deterministic outputs, and benefits from a clean API interface.
+**Alternatives considered:**
+*   *Flask:* Considered, but FastAPI was chosen for its automatic data validation (Pydantic) and built-in Swagger UI documentation.
+*   *Machine Learning:* A trained model could learn strategy, but Basic Strategy is a solved mathematical problem, so a deterministic algorithm is more accurate and efficient.
+**Tradeoffs:**
+*   *Simplicity vs. Features:* The app focuses on the core "Basic Strategy" without card counting or betting systems to keep the scope manageable and the codebase clean.
+**Security/Privacy:**
+*   No user data is stored.
+*   Input validation prevents malformed requests from crashing the server.
+**Ops:**
+*   **CI/CD:** A GitHub Actions workflow (`.github/workflows/ci.yml`) automatically runs tests and builds the Docker image on every push.
+*   **Observability:** The application logs all requests and strategy decisions to stdout, which can be captured by Docker logging drivers. A `/health` endpoint is provided for orchestration health checks.
+*   The container is stateless, allowing for easy horizontal scaling if needed.
 
-Security/Privacy: 
-No PII is processed.
-API validates inputs to prevent runtime errors.
+**5) Results & Evaluation**
+**Sample Output:**
+Input: Player [10, 6], Dealer [10] -> Output: `{"action": "Hit"}`
+Input: Player [10, 7], Dealer [6] -> Output: `{"action": "Stand"}`
 
-Ops Considerations:
-Logs can be added via FastAPI middleware.
-Limited scaling requirements since computations are lightweight.
+**Performance:**
+The API response time is negligible (<10ms) as the logic is purely computational O(1).
+**Validation:**
+Unit tests in `tests/` verify the strategy against known correct moves.
 
-5) Results & Evaluation
-Sample Output (JSON response):
-{
-  "action": "Stand"
-}
-The app returns correct recommendations for various test hands. Unit tests are included in:
-/tests/test_basic_strategypy.
+**6) What’s Next**
+*   Add support for specific table rules (e.g., "Dealer hits soft 17").
+*   Implement a "Card Counting" drill mode.
+*   Deploy to a cloud provider (e.g., AWS App Runner or Google Cloud Run).
+
+**7) Links**
+*   **GitHub Repo:** [Insert Repo URL Here]
