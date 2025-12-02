@@ -71,4 +71,4 @@ Unit tests in `tests/` verify the strategy against known correct moves.
 *   Deploy to a cloud provider (e.g., AWS App Runner or Google Cloud Run).
 
 **7) Links**
-*   **GitHub Repo:** [Insert Repo URL Here]
+*   **GitHub Repo:** [https://github.com/ZachEklund/final-project-docker](https://github.com/ZachEklund/final-project-docker)
